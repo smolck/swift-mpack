@@ -98,6 +98,10 @@ enum Value {
     }
 
     switch startingByte {
+    case 0xc2: // false
+      return (Value.boolean(false), [UInt8](bytes[1...]))
+    case 0xc3: // true
+      return (Value.boolean(true), [UInt8](bytes[1...]))
     case 0xcc, 0xd0:  // UInt8, Int8
       return (Value.integer(Int(bytes[1])), [UInt8](bytes[2...]))
     case 0xcd, 0xd1:  // UInt16, Int16
