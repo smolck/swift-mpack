@@ -18,7 +18,7 @@ fileprivate let u16Min =
 fileprivate let u32Min =
   NSDecimalNumber(decimal: -1 * pow(2, 16 - 1)).intValue
 
-enum Value {
+public enum Value {
   case null
   case boolean(Bool)
   case integer(Int)
