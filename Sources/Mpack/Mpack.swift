@@ -38,7 +38,7 @@ enum Value {
     var arr = Array(repeating: (Value.null, Value.null), count: len)
     var currBytes = bytes
 
-    for i in 0..<len*2 {
+    for i in 0..<len * 2 {
       let x = privFrom(bytes: currBytes)
 
       if i % 2 == 0 {
@@ -62,7 +62,7 @@ enum Value {
       let len = Int(startingByte & 0x1F)
       let stringBytes = bytes[1..<len + 1]
       if let x = String(bytes: stringBytes, encoding: .utf8) {
-        return (Value.string(x), [UInt8](bytes[(len+1)...]))
+        return (Value.string(x), [UInt8](bytes[(len + 1)...]))
       }
       return (Value.null, [])
 
@@ -82,7 +82,9 @@ enum Value {
       assert(currBytes == [])
 
       return (Value.array(arr), [])
-    } else if startingByte >= 0x80 && startingByte <= 0x8f /* TODO(smolck): Verify these are correct conditions */ {
+    } else if startingByte >= 0x80
+      && startingByte <= 0x8f // TODO(smolck): Verify these are correct conditions
+    {
       // fixmap
 
       // TODO(smolck): Make sure this is right.
@@ -98,27 +100,31 @@ enum Value {
     }
 
     switch startingByte {
-    case 0xc2: // false
+    case 0xc2:  // false
       return (Value.boolean(false), [UInt8](bytes[1...]))
-    case 0xc3: // true
+    case 0xc3:  // true
       return (Value.boolean(true), [UInt8](bytes[1...]))
     case 0xcc, 0xd0:  // UInt8, Int8
       return (Value.integer(Int(bytes[1])), [UInt8](bytes[2...]))
     case 0xcd, 0xd1:  // UInt16, Int16
       return (deserializeNum16([UInt8](bytes[1..<3])), [UInt8](bytes[4...]))
-    case 0xce, 0xd2: // UInt32, Int32
+    case 0xce, 0xd2:  // UInt32, Int32
       return (deserializeNum32([UInt8](bytes[1..<5])), [UInt8](bytes[5...]))
-    case 0xcf, 0xd3: // UInt64, Int64
+    case 0xcf, 0xd3:  // UInt64, Int64
       return (deserializeNum64([UInt8](bytes[1..<9])), [UInt8](bytes[9...]))
-    case 0xca: // Float32
+    case 0xca:  // Float32
       // https://stackoverflow.com/a/41163620
-      let float = Float(bitPattern: UInt32(bigEndian: Data(bytes[1..<5]).withUnsafeBytes { $0.load(as: UInt32.self) }))
+      let float = Float(
+        bitPattern: UInt32(
+          bigEndian: Data(bytes[1..<5]).withUnsafeBytes { $0.load(as: UInt32.self) }))
       return (Value.float32(float), [UInt8](bytes[5...]))
-    case 0xcb: // Float64
+    case 0xcb:  // Float64
       // See above
-      let double = Double(bitPattern: UInt64(bigEndian: Data(bytes[1..<9]).withUnsafeBytes { $0.load(as: UInt64.self) }))
+      let double = Double(
+        bitPattern: UInt64(
+          bigEndian: Data(bytes[1..<9]).withUnsafeBytes { $0.load(as: UInt64.self) }))
       return (Value.float64(double), [UInt8](bytes[9...]))
-    case 0xdc: // Array16
+    case 0xdc:  // Array16
       if case .integer(let len) = deserializeNum16([UInt8](bytes[1..<3])) {
         var arr = Array(repeating: Value.null, count: len)
         var currBytes = [UInt8](bytes[3...])
@@ -136,7 +142,7 @@ enum Value {
 
       // TODO(smolck): Should never get here I don't think.
       assert(false)
-    case 0xdd: // Array32
+    case 0xdd:  // Array32
       if case .integer(let len) = deserializeNum32([UInt8](bytes[1..<5])) {
         var arr = Array(repeating: Value.null, count: len)
         var currBytes = [UInt8](bytes[5...])
@@ -155,11 +161,11 @@ enum Value {
 
       // TODO(smolck): Should never get here I don't think.
       assert(false)
-    case 0xde: // Map16
+    case 0xde:  // Map16
       if case .integer(let len) = deserializeNum16([UInt8](bytes[1..<3])) {
         return (deserializeMap(len: len, bytes: [UInt8](bytes[3...])), [])
       }
-    case 0xdf: // Map32
+    case 0xdf:  // Map32
       if case .integer(let len) = deserializeNum32([UInt8](bytes[1..<5])) {
         return (deserializeMap(len: len, bytes: [UInt8](bytes[5...])), [])
       }
