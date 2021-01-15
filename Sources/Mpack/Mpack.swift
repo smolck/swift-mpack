@@ -1,9 +1,5 @@
 import Foundation
 
-struct Mpack {
-  var text = "Hello, World!"
-}
-
 enum Value {
   // TODO(smolck): Any reason to add serialization for uints?
   case null
