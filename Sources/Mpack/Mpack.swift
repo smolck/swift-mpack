@@ -34,6 +34,26 @@ enum Value {
     return Value.integer(Int(x))
   }
 
+  private static func deserializeMap(len: Int, bytes: [UInt8]) -> Value {
+    var arr = Array(repeating: (Value.null, Value.null), count: len)
+    var currBytes = bytes
+
+    for i in 0..<len*2 {
+      let x = privFrom(bytes: currBytes)
+
+      if i % 2 == 0 {
+        arr[i].0 = x.0
+      } else {
+        arr[i - 1].1 = x.0
+      }
+
+      currBytes = x.1
+    }
+    assert(currBytes == [])
+
+    return Value.map(arr)
+  }
+
   private static func privFrom(bytes: [UInt8]) -> (Value, [UInt8]) {
     let startingByte = bytes[0]
 
@@ -62,6 +82,13 @@ enum Value {
       assert(currBytes == [])
 
       return (Value.array(arr), [])
+    } else if startingByte >= 0x80 && startingByte <= 0x8f /* TODO(smolck): Verify these are correct conditions */ {
+      // fixmap
+
+      // TODO(smolck): Make sure this is right.
+      let len = Int(startingByte - 0x80)
+
+      return (deserializeMap(len: len, bytes: [UInt8](bytes[1...])), [])
     } else if (startingByte & 0xE0) == 0xE0 {
       // Negative fixnum
       return (Value.integer(Int(startingByte) - 256), [UInt8](bytes[1...]))
@@ -110,9 +137,7 @@ enum Value {
         var arr = Array(repeating: Value.null, count: len)
         var currBytes = [UInt8](bytes[5...])
         for i in 0..<len {
-          print("start, \(currBytes)")
           let x = privFrom(bytes: currBytes)
-          print("end")
 
           arr[i] = x.0
           currBytes = x.1
@@ -122,6 +147,17 @@ enum Value {
         assert(currBytes == [])
 
         return (Value.array(arr), [])
+      }
+
+      // TODO(smolck): Should never get here I don't think.
+      assert(false)
+    case 0xde: // Map16
+      if case .integer(let len) = deserializeNum16([UInt8](bytes[1..<3])) {
+        return (deserializeMap(len: len, bytes: [UInt8](bytes[3...])), [])
+      }
+    case 0xdf: // Map32
+      if case .integer(let len) = deserializeNum32([UInt8](bytes[1..<5])) {
+        return (deserializeMap(len: len, bytes: [UInt8](bytes[5...])), [])
       }
 
       // TODO(smolck): Should never get here I don't think.
