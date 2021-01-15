@@ -85,7 +85,7 @@ enum Value {
 
       return (Value.array(arr), [])
     } else if startingByte >= 0x80
-      && startingByte <= 0x8f // TODO(smolck): Verify these are correct conditions
+      && startingByte <= 0x8f  // TODO(smolck): Verify these are correct conditions
     {
       // fixmap
 
@@ -212,29 +212,12 @@ enum Value {
       } else if x <= Int16.max {
         bytes.append(0xd1)
         bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<2])
-
-        // bytes.append(UInt8((x >> 8) & 0xFF))
-        // bytes.append(UInt8(x & 0xFF))
       } else if x <= Int32.max {
         bytes.append(0xd2)
         bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<4])
-
-        // bytes.append(UInt8((x >> 24) & 0xFF))
-        // bytes.append(UInt8((x >> 16) & 0xFF))
-        // bytes.append(UInt8((x >> 8) & 0xFF))
-        // bytes.append(UInt8(x & 0xFF))
       } else {
         bytes.append(0xd3)
         bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed())
-
-        /* bytes.append(UInt8((x >> 56) & 0xFF))
-        bytes.append(UInt8((x >> 48) & 0xFF))
-        bytes.append(UInt8((x >> 40) & 0xFF))
-        bytes.append(UInt8((x >> 32) & 0xFF))
-        bytes.append(UInt8((x >> 24) & 0xFF))
-        bytes.append(UInt8((x >> 16) & 0xFF))
-        bytes.append(UInt8((x >> 8) & 0xFF))
-        bytes.append(UInt8(x & 0xFF)) */
       }
 
       return bytes
