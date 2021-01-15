@@ -21,7 +21,6 @@ final class MpackTests: XCTestCase {
     let float32 = Value.float32(15.5)
     let float64 = Value.float64(12345678.987654321)
 
-    print(float32.toBytes())
     XCTAssert(float32.toBytes() == [203, 64, 47, 0, 0, 0, 0, 0, 0])
     XCTAssert(float64.toBytes() == [203, 65, 103, 140, 41, 223, 154, 221, 60])
 

@@ -1,21 +1,21 @@
 import Foundation
 
 // See https://github.com/smolck/uivonim/blob/a622bc0b1e8b3582f9bb364b3eccc8ff4f31463a/src/messaging/msgpack-encoder.ts#L6-L13
-private let int8Max =
+fileprivate let int8Max =
   NSDecimalNumber(decimal: pow(2, 8) - 1).intValue
-private let int16Max =
+fileprivate let int16Max =
   NSDecimalNumber(decimal: pow(2, 16) - 1).intValue
-private let int32Max =
+fileprivate let int32Max =
   NSDecimalNumber(decimal: pow(2, 32) - 1).intValue
-private let negativeFixintMin =
+fileprivate let negativeFixintMin =
   NSDecimalNumber(decimal: pow(2, 5) * -1).intValue
-private let u8Max =
+fileprivate let u8Max =
   NSDecimalNumber(decimal: pow(2, 8 - 1) - 1).intValue
-private let u8Min =
+fileprivate let u8Min =
   NSDecimalNumber(decimal: -1 * pow(2, 8 - 1)).intValue
-private let u16Min =
+fileprivate let u16Min =
   NSDecimalNumber(decimal: -1 * pow(2, 16 - 1)).intValue
-private let u32Min =
+fileprivate let u32Min =
   NSDecimalNumber(decimal: -1 * pow(2, 16 - 1)).intValue
 
 enum Value {
