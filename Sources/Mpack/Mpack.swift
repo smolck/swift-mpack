@@ -5,16 +5,18 @@ struct Mpack {
 }
 
 enum Value {
+  // TODO(smolck): Any reason to add serialization for uints?
   case null
   case boolean(Bool)
   case integer(Int)
   case float32(Float)
   case float64(Double)
   case string(String)
-  case binary([UInt8])
   case array([Value])
   case map([(Value, Value)])
-  case ext(Int, [UInt8])
+  // TODO(smolck)
+  // case binary([UInt8])
+  // case ext(Int, [UInt8])
 
   private static func deserializeNum16(_ bytes: [UInt8]) -> Value {
     return Value.integer(Int(bytes[0] << 8 | bytes[1]))
@@ -182,5 +184,126 @@ enum Value {
 
   static func from(bytes: [UInt8]) -> Value {
     return privFrom(bytes: bytes).0
+  }
+
+  func toBytes() -> [UInt8] {
+    var bytes = [UInt8]()
+
+    switch self {
+    case .null:
+      bytes.append(0xc0)
+      return bytes
+    case .boolean(let x):
+      if x {
+        bytes.append(0xc3)
+      } else {
+        bytes.append(0xc2)
+      }
+
+      return bytes
+    case .integer(let x):
+      if !(x >= -32) {
+        // Not a fixint, so add start for serializing an int8
+        bytes.append(0xd0)
+      }
+
+      if x <= Int8.max {
+        bytes.append(UInt8(x & 0xFF))
+      } else if x <= Int16.max {
+        bytes.append(0xd1)
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<2])
+
+        // bytes.append(UInt8((x >> 8) & 0xFF))
+        // bytes.append(UInt8(x & 0xFF))
+      } else if x <= Int32.max {
+        bytes.append(0xd2)
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<4])
+
+        // bytes.append(UInt8((x >> 24) & 0xFF))
+        // bytes.append(UInt8((x >> 16) & 0xFF))
+        // bytes.append(UInt8((x >> 8) & 0xFF))
+        // bytes.append(UInt8(x & 0xFF))
+      } else {
+        bytes.append(0xd3)
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed())
+
+        /* bytes.append(UInt8((x >> 56) & 0xFF))
+        bytes.append(UInt8((x >> 48) & 0xFF))
+        bytes.append(UInt8((x >> 40) & 0xFF))
+        bytes.append(UInt8((x >> 32) & 0xFF))
+        bytes.append(UInt8((x >> 24) & 0xFF))
+        bytes.append(UInt8((x >> 16) & 0xFF))
+        bytes.append(UInt8((x >> 8) & 0xFF))
+        bytes.append(UInt8(x & 0xFF)) */
+      }
+
+      return bytes
+    case .float32(let x):
+      bytes.append(0xca)
+      bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<4])
+      return bytes
+    case .float64(let x):
+      bytes.append(0xcb)
+      bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed())
+      return bytes
+    case .string(let str):
+      if str.count < 31 {
+        // fixstr
+        bytes.append(UInt8(0xa0 | str.count))
+      } else if str.count <= UInt8.max {
+        // str8
+        bytes.append(0xd9)
+        bytes.append(UInt8(str.count))
+      } else if str.count <= UInt16.max {
+        // str16
+        bytes.append(0xda)
+        bytes.append(UInt8((str.count >> 8) & 0xFF))
+        bytes.append(UInt8(str.count & 0xFF))
+      } else {
+        // str32
+        bytes.append(0xdb)
+        bytes.append(contentsOf: withUnsafeBytes(of: str.count, Array.init).reversed()[0..<4])
+      }
+
+      bytes.append(contentsOf: Array(str.utf8))
+      return bytes
+    case .array(let arr):
+      if arr.count <= 15 {
+        // fixarray
+        bytes.append(UInt8(0x90 | arr.count))
+      } else if arr.count <= UInt16.max {
+        // array16
+        bytes.append(0xdc)
+        bytes.append(UInt8((arr.count >> 8) & 0xFF))
+        bytes.append(UInt8(arr.count & 0xFF))
+      } else {
+        // array32
+        bytes.append(0xdd)
+        bytes.append(contentsOf: withUnsafeBytes(of: arr.count, Array.init).reversed()[0..<4])
+      }
+
+      bytes.append(contentsOf: arr.flatMap { $0.toBytes() })
+      return bytes
+    case .map(let map):
+      if map.count <= 15 {
+        // fixmap
+        bytes.append(UInt8(0x80 | map.count))
+      } else if map.count <= UInt16.max {
+        // map16
+        bytes.append(0xde)
+        bytes.append(UInt8((map.count >> 8) & 0xFF))
+        bytes.append(UInt8(map.count & 0xFF))
+      } else {
+        // map32
+        bytes.append(0xdf)
+        bytes.append(contentsOf: withUnsafeBytes(of: map.count, Array.init).reversed()[0..<4])
+      }
+
+      for (key, val) in map {
+        bytes.append(contentsOf: key.toBytes())
+        bytes.append(contentsOf: val.toBytes())
+      }
+      return bytes
+    }
   }
 }
