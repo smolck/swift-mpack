@@ -196,11 +196,11 @@ public enum Value {
     return (Value.null, [])
   }
 
-  static func from(bytes: [UInt8]) -> Value {
+  public static func from(bytes: [UInt8]) -> Value {
     return privFrom(bytes: bytes).0
   }
 
-  func toBytes() -> [UInt8] {
+  public func toBytes() -> [UInt8] {
     var bytes = [UInt8]()
 
     switch self {
