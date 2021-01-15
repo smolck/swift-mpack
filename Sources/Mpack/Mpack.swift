@@ -1,7 +1,24 @@
 import Foundation
 
+// See https://github.com/smolck/uivonim/blob/a622bc0b1e8b3582f9bb364b3eccc8ff4f31463a/src/messaging/msgpack-encoder.ts#L6-L13
+private let int8Max =
+  NSDecimalNumber(decimal: pow(2, 8) - 1).intValue
+private let int16Max =
+  NSDecimalNumber(decimal: pow(2, 16) - 1).intValue
+private let int32Max =
+  NSDecimalNumber(decimal: pow(2, 32) - 1).intValue
+private let negativeFixintMin =
+  NSDecimalNumber(decimal: pow(2, 5) * -1).intValue
+private let u8Max =
+  NSDecimalNumber(decimal: pow(2, 8 - 1) - 1).intValue
+private let u8Min =
+  NSDecimalNumber(decimal: -1 * pow(2, 8 - 1)).intValue
+private let u16Min =
+  NSDecimalNumber(decimal: -1 * pow(2, 16 - 1)).intValue
+private let u32Min =
+  NSDecimalNumber(decimal: -1 * pow(2, 16 - 1)).intValue
+
 enum Value {
-  // TODO(smolck): Any reason to add serialization for uints?
   case null
   case boolean(Bool)
   case integer(Int)
@@ -10,6 +27,7 @@ enum Value {
   case string(String)
   case array([Value])
   case map([(Value, Value)])
+
   // TODO(smolck)
   // case binary([UInt8])
   // case ext(Int, [UInt8])
@@ -198,28 +216,79 @@ enum Value {
 
       return bytes
     case .integer(let x):
-      if !(x >= -32) {
-        // Not a fixint, so add start for serializing an int8
-        bytes.append(0xd0)
+      let pos = x.signum() > 0
+
+      // See
+      // https://github.com/smolck/uivonim/blob/a622bc0b1e8b3582f9bb364b3eccc8ff4f31463a/src/messaging/msgpack-encoder.ts#L43
+
+      // fixint
+      if pos && x <= u8Max {
+        bytes.append(UInt8(x & 0xFF))
       }
 
-      if x <= Int8.max {
+      // uint8
+      else if pos && x <= int8Max {
+        bytes.append(0xcc)
+        bytes.append(UInt8(x))
+      }
+
+      // uint16
+      else if pos && x <= int16Max {
+        bytes.append(0xcd)
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init)[0..<2].reversed())
+      }
+
+      // uint32
+      else if pos && x <= int32Max {
+        bytes.append(0xce)
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init)[0..<4].reversed())
+      }
+
+      // uint64
+      else if pos {
+        bytes.append(0xcf)
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed())
+      }
+
+      // (negative) int8
+      else if !pos && x >= u8Min {
+        bytes.append(0xd0)
+
+        // TODO(smolck): Check this
         bytes.append(UInt8(x & 0xFF))
-      } else if x <= Int16.max {
+      }
+
+      // (negative) int16
+      else if !pos && x >= u16Min {
         bytes.append(0xd1)
-        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<2])
-      } else if x <= Int32.max {
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init)[0..<2].reversed())
+      }
+
+      // (negative) int32
+      else if !pos && x >= u32Min {
         bytes.append(0xd2)
-        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<4])
-      } else {
-        bytes.append(0xd3)
+        bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init)[0..<4].reversed())
+      }
+
+      // (negative) int64
+      else if !pos {
+        bytes.append(0xd2)
         bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed())
       }
 
       return bytes
+    // TODO(smolck): For some reason it seems like msgpack libraries always
+    // serialize float32s as float64s? Even with the `Try!` serializer at
+    // msgpack.org it never seems to create a float32 (which start with 0xca
+    // according to the spec) . . .  so just do the same, for now at least.
+    //
+    // For future ref for float32 serialization:
+    // bytes.append(0xca)
+    // bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init)[0..<4].reversed())
+    // return bytes
     case .float32(let x):
-      bytes.append(0xca)
-      bytes.append(contentsOf: withUnsafeBytes(of: x, Array.init).reversed()[0..<4])
+      bytes.append(0xcb)
+      bytes.append(contentsOf: withUnsafeBytes(of: Double(x), Array.init).reversed())
       return bytes
     case .float64(let x):
       bytes.append(0xcb)
