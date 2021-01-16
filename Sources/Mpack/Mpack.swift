@@ -50,27 +50,29 @@ public enum Value {
     return Value.integer(Int(x))
   }
 
-  private static func deserializeMap(len: Int, bytes: [UInt8]) -> Value {
-    var arr = Array(repeating: (Value.null, Value.null), count: len)
+  private static func deserializeMap(len: Int, bytes: [UInt8]) -> (Value, [UInt8]) {
+    var arr = Array.init(repeating: Value.null, count: len * 2)
     var currBytes = bytes
 
     for i in 0..<len * 2 {
       let x = privFrom(bytes: currBytes)
 
-      if i % 2 == 0 {
-        arr[i].0 = x.0
-      } else {
-        arr[i - 1].1 = x.0
-      }
-
+      arr[i] = x.0
       currBytes = x.1
     }
-    assert(currBytes == [])
 
-    return Value.map(arr)
+    let enumArr = arr.enumerated()
+    // Adapted from https://stackoverflow.com/a/61238966.
+    // TODO(smolck): Perf?
+    let dict = Dictionary(grouping: enumArr) { $0.0.isMultiple(of: 2) }.map { (key, value) in
+      value.map { (_, x) in x }
+    }
+
+    return (Value.map([(Value, Value)](zip(dict[1], dict[0]))), currBytes)
   }
 
   private static func privFrom(bytes: [UInt8]) -> (Value, [UInt8]) {
+    precondition(bytes.count > 0,"privFrom got passed UInt8 (byte) array with length of zero")
     let startingByte = bytes[0]
 
     if (startingByte & 0xE0) == 0xA0 {
@@ -94,10 +96,7 @@ public enum Value {
         currBytes = x.1
       }
 
-      // TODO(smolck): I *think* this should always be true.
-      assert(currBytes == [])
-
-      return (Value.array(arr), [])
+      return (Value.array(arr), currBytes)
     } else if startingByte >= 0x80
       && startingByte <= 0x8f  // TODO(smolck): Verify these are correct conditions
     {
@@ -106,7 +105,8 @@ public enum Value {
       // TODO(smolck): Make sure this is right.
       let len = Int(startingByte - 0x80)
 
-      return (deserializeMap(len: len, bytes: [UInt8](bytes[1...])), [])
+      let deserialized = deserializeMap(len: len, bytes: [UInt8](bytes[1...]))
+      return (deserialized.0, deserialized.1)
     } else if (startingByte & 0xE0) == 0xE0 {
       // Negative fixnum
       return (Value.integer(Int(startingByte) - 256), [UInt8](bytes[1...]))
@@ -150,10 +150,7 @@ public enum Value {
           currBytes = x.1
         }
 
-        // TODO(smolck): I *think* this is always true . . .
-        assert(currBytes == [])
-
-        return (Value.array(arr), [])
+        return (Value.array(arr), currBytes)
       }
 
       // TODO(smolck): Should never get here I don't think.
@@ -169,21 +166,20 @@ public enum Value {
           currBytes = x.1
         }
 
-        // TODO(smolck): I *think* this is always true . . .
-        assert(currBytes == [])
-
-        return (Value.array(arr), [])
+        return (Value.array(arr), currBytes)
       }
 
       // TODO(smolck): Should never get here I don't think.
       assert(false)
     case 0xde:  // Map16
       if case .integer(let len) = deserializeNum16([UInt8](bytes[1..<3])) {
-        return (deserializeMap(len: len, bytes: [UInt8](bytes[3...])), [])
+        let deserialized = deserializeMap(len: len, bytes: [UInt8](bytes[3...]))
+        return (deserialized.0, deserialized.1)
       }
     case 0xdf:  // Map32
       if case .integer(let len) = deserializeNum32([UInt8](bytes[1..<5])) {
-        return (deserializeMap(len: len, bytes: [UInt8](bytes[5...])), [])
+        let deserialized = deserializeMap(len: len, bytes: [UInt8](bytes[5...]))
+        return (deserialized.0, deserialized.1)
       }
 
       // TODO(smolck): Should never get here I don't think.
@@ -196,7 +192,10 @@ public enum Value {
     return (Value.null, [])
   }
 
-  public static func from(bytes: [UInt8]) -> Value {
+  public static func from(_ bytes: [UInt8]) -> Value {
+    // let x = privFrom(bytes: bytes)
+    // TODO(smolck)
+    // precondition(x.1 == [], "Msgpack deserialization didn't complete: this is probably a bug, or perhaps a bad input?")
     return privFrom(bytes: bytes).0
   }
 
