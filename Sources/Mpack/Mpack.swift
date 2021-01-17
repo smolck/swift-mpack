@@ -116,6 +116,8 @@ public enum Value {
     }
 
     switch startingByte {
+    case 0xc0: // nil
+      return (Value.null, [UInt8](bytes[1...]))
     case 0xc2:  // false
       return (Value.boolean(false), [UInt8](bytes[1...]))
     case 0xc3:  // true
